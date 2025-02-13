@@ -1,0 +1,350 @@
+---
+title: "Visualization Project"
+author: "Brett Laderman"
+date: "2024-10-07"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Importing the Datasets
+```{r}
+Singles <- read_csv("C:/NC State Work/NC State Fall/NC State Fall Analytics/Visualization Project/ncstateSinglesStatReport-5.csv")
+
+WTA_Rankings <- read_excel("C:/NC State Work/NC State Fall/NC State Fall Analytics/Visualization Project/Final2023-24NCAAIWomensTennisWTAPointsSinceNCAAsMay262024.xlsx")
+```
+
+
+Cleaning the Data
+```{r}
+Singles <- Singles %>% 
+  mutate(player = ifelse(player == "Gabriella broadfoot", "Gabriella Broadfoot", player),
+         player = ifelse(player == "Kristina paskauskas", "Kristina Paskauskas", player),
+         player = ifelse(player == "Gina Dittman", "Gina Dittmann", player),
+         player = ifelse(player == "Millie Rajecki", "Amelia Rajecki", player))
+
+Singles$date <- as.Date(Singles$date, format = "%m/%d/%Y")
+
+
+Singles <- Singles %>%
+  mutate(Season = case_when(
+    date >= as.Date('2018-08-01') & date <= as.Date('2019-07-31') ~ '18-19',
+    date >= as.Date('2019-08-01') & date <= as.Date('2020-07-31') ~ '19-20',
+    date >= as.Date('2020-08-01') & date <= as.Date('2021-07-31') ~ '20-21',
+    date >= as.Date('2021-08-01') & date <= as.Date('2022-07-31') ~ '21-22',
+    date >= as.Date('2022-08-01') & date <= as.Date('2023-07-31') ~ '22-23',
+    date >= as.Date('2023-08-01') & date <= as.Date('2024-07-31') ~ '23-24',
+    date >= as.Date('2024-08-01') & date <= as.Date('2025-07-31') ~ '24-25',
+    TRUE ~ as.character(date) # Default case if none of the above match
+  ))
+
+
+
+TEST <- Singles %>% 
+  filter(matchId == "66107b4d360000c1e921eb40")
+
+
+
+Profile <- TEST %>% 
+  group_by(player) %>% 
+  summarise(Total_Points_Won = sum(pointWonBy == 0),
+            Sets_Won = sum(setsWon & !duplicated(gameId)),
+            Winners = sum(outcome == "Winner" & pointWonBy == 0),
+            Errors_Forced = sum(outcome == "ForcedError" & pointWonBy == 0),
+            Unforced_Errors = sum(outcome == "UnforcedError" & pointWonBy == 1),
+            B_Points = sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0),
+            Break_Points = (sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0)) /
+              (sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0) + sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 1)),
+            Aces = sum(outcome == "Ace" & pointWonBy == 0),
+            Double_Faults = sum(outcome == "Fault" & pointWonBy == 1),
+            First_Serves_In = sum(firstServeIn == "TRUE" & server == 0)/
+              sum((firstServeIn == "TRUE" | firstServeIn == "FALSE") & server == 0),
+            First_Serves_Won = sum(firstServeIn == "TRUE" & server == 0 & pointWonBy == 0)/
+              sum(firstServeIn == "TRUE" & server == 0 & (pointWonBy == 0 | pointWonBy == 1)),
+            Second_Serves_In = sum(firstServeIn == "FALSE" & server == 0 & outcome != "Fault")/
+              sum(firstServeIn == "FALSE" & server == 0),
+            Second_Serves_Won = sum(firstServeIn == "FALSE" & server == 0 & pointWonBy == 0)/
+              sum(firstServeIn == "FALSE" & server == 0),
+            First_Serve_Returns = sum(firstServeIn == "TRUE" & server == 1 & returnInPlay == "TRUE")/
+              sum(firstServeIn == "TRUE" & server == 1), # Wrong Answer
+            Second_Serve_Returns = sum(firstServeIn == "FALSE" & server == 1 & rallyLength > 1)/
+              sum(firstServeIn == "FALSE" & server == 1 & rallyLength >= 1),
+            Short_Rallies_Won = sum(rallyLength < 5 & pointWonBy == 0)/sum(rallyLength < 5),
+            Medium_Rallies_Won = sum(rallyLength >= 5 & rallyLength <= 8 & pointWonBy == 0)/
+              sum(rallyLength >= 5 & rallyLength <= 8),
+            Long_Rallies_Won = sum(rallyLength > 8 & pointWonBy == 0)/
+              sum(rallyLength > 8),
+            Service_Games_Won = (sum(server == 0 & gameWonBy == 0 & !duplicated(gameId)))/
+              (sum(server == 0 & gameWonBy == 1 & !duplicated(gameId)) + sum(server == 0 & gameWonBy == 0 & !duplicated(gameId))),
+            Service_G_Won = sum(server == 0 & gameWonBy == 0 & !duplicated(gameId)),
+            Service_Games_Lost = sum(server == 0 & gameWonBy == 1 & !duplicated(gameId)),
+            Total_Matches = n_distinct(matchId),
+            Total_Points_Played = sum(pointWonBy == 0 | pointWonBy == 1),
+            Plus_Minus = sum(pointWonBy == 0 & (outcome == "Ace" | outcome == "Winner" | 
+                               outcome == "ForcedError")) - sum(pointWonBy == 1 & (outcome == "Fault" |
+                                                                 outcome == "UnforcedError")),
+            First_Serve_Performance_Rating = First_Serves_In * First_Serves_Won)
+
+
+
+
+Career_Profile <- Singles %>% 
+  group_by(player) %>% 
+  summarise(Total_Points_Won = sum(pointWonBy == 0),
+            Sets_Won = sum(setsWon & !duplicated(gameId)),
+            Winners = sum(outcome == "Winner" & pointWonBy == 0),
+            Errors_Forced = sum(outcome == "ForcedError" & pointWonBy == 0),
+            Unforced_Errors = sum(outcome == "UnforcedError" & pointWonBy == 1),
+            B_Points = sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0),
+            Break_Points = (sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0)) /
+              (sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0) + sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 1)),
+            Aces = sum(outcome == "Ace" & pointWonBy == 0),
+            Double_Faults = sum(outcome == "Fault" & pointWonBy == 1),
+            First_Serves_In = sum(firstServeIn == "TRUE" & server == 0)/
+              sum((firstServeIn == "TRUE" | firstServeIn == "FALSE") & server == 0),
+            First_Serves_Won = sum(firstServeIn == "TRUE" & server == 0 & pointWonBy == 0)/
+              sum(firstServeIn == "TRUE" & server == 0 & (pointWonBy == 0 | pointWonBy == 1)),
+            Second_Serves_In = sum(firstServeIn == "FALSE" & server == 0 & outcome != "Fault")/
+              sum(firstServeIn == "FALSE" & server == 0),
+            Second_Serves_Won = sum(firstServeIn == "FALSE" & server == 0 & pointWonBy == 0)/
+              sum(firstServeIn == "FALSE" & server == 0),
+            First_Serve_Returns = sum(firstServeIn == "TRUE" & server == 1 & returnInPlay == "TRUE")/
+              sum(firstServeIn == "TRUE" & server == 1), # Wrong Answer
+            Second_Serve_Returns = sum(firstServeIn == "FALSE" & server == 1 & rallyLength > 1)/
+              sum(firstServeIn == "FALSE" & server == 1 & rallyLength >= 1),
+            Short_Rallies_Won = sum(rallyLength < 5 & pointWonBy == 0)/sum(rallyLength < 5),
+            Medium_Rallies_Won = sum(rallyLength >= 5 & rallyLength <= 8 & pointWonBy == 0)/
+              sum(rallyLength >= 5 & rallyLength <= 8),
+            Long_Rallies_Won = sum(rallyLength > 8 & pointWonBy == 0)/
+              sum(rallyLength > 8),
+            Service_Games_Won = (sum(server == 0 & gameWonBy == 0 & !duplicated(gameId)))/
+              (sum(server == 0 & gameWonBy == 1 & !duplicated(gameId)) + sum(server == 0 & gameWonBy == 0 & !duplicated(gameId))),
+            Service_G_Won = sum(server == 0 & gameWonBy == 0 & !duplicated(gameId)),
+            Service_Games_Lost = sum(server == 0 & gameWonBy == 1 & !duplicated(gameId)),
+            Total_Matches = n_distinct(matchId),
+            Total_Points_Played = sum(pointWonBy == 0 | pointWonBy == 1),
+            Plus_Minus = sum(pointWonBy == 0 & (outcome == "Ace" | outcome == "Winner" | 
+                               outcome == "ForcedError")) - sum(pointWonBy == 1 & (outcome == "Fault" |
+                                                                 outcome == "UnforcedError")),
+            First_Serve_Performance_Rating = First_Serves_In * First_Serves_Won)
+
+
+Career_Profile_Eligible <- Career_Profile %>% 
+  filter(Total_Points_Played > 700 | Total_Matches >= 7)
+
+
+
+Season_Profile <- Singles %>% 
+  group_by(player, Season) %>% 
+  summarise(Total_Points_Won = sum(pointWonBy == 0),
+            Sets_Won = sum(setsWon & !duplicated(gameId)),
+            Winners = sum(outcome == "Winner" & pointWonBy == 0),
+            Errors_Forced = sum(outcome == "ForcedError" & pointWonBy == 0),
+            Unforced_Errors = sum(outcome == "UnforcedError" & pointWonBy == 1),
+            B_Points = sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0),
+            Break_Points = (sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0)) /
+              (sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0) + sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 1)),
+            Aces = sum(outcome == "Ace" & pointWonBy == 0),
+            Double_Faults = sum(outcome == "Fault" & pointWonBy == 1),
+            First_Serves_In = sum(firstServeIn == "TRUE" & server == 0)/
+              sum((firstServeIn == "TRUE" | firstServeIn == "FALSE") & server == 0),
+            First_Serves_Won = sum(firstServeIn == "TRUE" & server == 0 & pointWonBy == 0)/
+              sum(firstServeIn == "TRUE" & server == 0 & (pointWonBy == 0 | pointWonBy == 1)),
+            Second_Serves_In = sum(firstServeIn == "FALSE" & server == 0 & outcome != "Fault")/
+              sum(firstServeIn == "FALSE" & server == 0),
+            Second_Serves_Won = sum(firstServeIn == "FALSE" & server == 0 & pointWonBy == 0)/
+              sum(firstServeIn == "FALSE" & server == 0),
+            First_Serve_Returns = sum(firstServeIn == "TRUE" & server == 1 & returnInPlay == "TRUE")/
+              sum(firstServeIn == "TRUE" & server == 1), # Wrong Answer
+            Second_Serve_Returns = sum(firstServeIn == "FALSE" & server == 1 & rallyLength > 1)/
+              sum(firstServeIn == "FALSE" & server == 1 & rallyLength >= 1),
+            Short_Rallies_Won = sum(rallyLength < 5 & pointWonBy == 0)/sum(rallyLength < 5),
+            Medium_Rallies_Won = sum(rallyLength >= 5 & rallyLength <= 8 & pointWonBy == 0)/
+              sum(rallyLength >= 5 & rallyLength <= 8),
+            Long_Rallies_Won = sum(rallyLength > 8 & pointWonBy == 0)/
+              sum(rallyLength > 8),
+            Service_Games_Won = (sum(server == 0 & gameWonBy == 0 & !duplicated(gameId)))/
+              (sum(server == 0 & gameWonBy == 1 & !duplicated(gameId)) + sum(server == 0 & gameWonBy == 0 & !duplicated(gameId))),
+            Service_G_Won = sum(server == 0 & gameWonBy == 0 & !duplicated(gameId)),
+            Service_Games_Lost = sum(server == 0 & gameWonBy == 1 & !duplicated(gameId)),
+            Total_Matches = n_distinct(matchId),
+            Total_Points_Played = sum(pointWonBy == 0 | pointWonBy == 1),
+            Plus_Minus = sum(pointWonBy == 0 & (outcome == "Ace" | outcome == "Winner" | 
+                               outcome == "ForcedError")) - sum(pointWonBy == 1 & (outcome == "Fault" |
+                                                                 outcome == "UnforcedError")),
+            First_Serve_Performance_Rating = First_Serves_In * First_Serves_Won)
+
+
+
+
+
+
+
+
+Sets_Profile <- Singles %>% 
+  group_by(player, setId) %>%  # Group by player and set
+  summarise(
+    Total_Games_Won = sum(gameWonBy == 0 & !duplicated(gameId)),  # Total games won by the player in this set
+    Total_Games_Opponent_Won = sum(gameWonBy == 1 & !duplicated(gameId)),
+    Total_Points_Won = sum(pointWonBy == 0),
+            Winners = sum(outcome == "Winner" & pointWonBy == 0),
+            Errors_Forced = sum(outcome == "ForcedError" & pointWonBy == 0),
+            Unforced_Errors = sum(outcome == "UnforcedError" & pointWonBy == 1),
+            B_Points = sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0),
+            Break_Points = (sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0)) /
+              (sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 0) + sum(breakPoint == "TRUE" & server == 1 & pointWonBy == 1)),
+            Aces = sum(outcome == "Ace" & pointWonBy == 0),
+            Double_Faults = sum(outcome == "Fault" & pointWonBy == 1),
+            First_Serves_In = sum(firstServeIn == "TRUE" & server == 0)/
+              sum((firstServeIn == "TRUE" | firstServeIn == "FALSE") & server == 0),
+            First_Serves_Won = sum(firstServeIn == "TRUE" & server == 0 & pointWonBy == 0)/
+              sum(firstServeIn == "TRUE" & server == 0 & (pointWonBy == 0 | pointWonBy == 1)),
+            Second_Serves_In = sum(firstServeIn == "FALSE" & server == 0 & outcome != "Fault")/
+              sum(firstServeIn == "FALSE" & server == 0),
+            Second_Serves_Won = sum(firstServeIn == "FALSE" & server == 0 & pointWonBy == 0)/
+              sum(firstServeIn == "FALSE" & server == 0),
+            First_Serve_Returns = sum(firstServeIn == "TRUE" & server == 1 & returnInPlay == "TRUE")/
+              sum(firstServeIn == "TRUE" & server == 1), # Wrong Answer
+            Second_Serve_Returns = sum(firstServeIn == "FALSE" & server == 1 & rallyLength > 1)/
+              sum(firstServeIn == "FALSE" & server == 1 & rallyLength >= 1),
+            Short_Rallies_Won = sum(rallyLength < 5 & pointWonBy == 0)/sum(rallyLength < 5),
+            Medium_Rallies_Won = sum(rallyLength >= 5 & rallyLength <= 8 & pointWonBy == 0)/
+              sum(rallyLength >= 5 & rallyLength <= 8),
+            Long_Rallies_Won = sum(rallyLength > 8 & pointWonBy == 0)/
+              sum(rallyLength > 8),
+            Service_Games_Won = (sum(server == 0 & gameWonBy == 0 & !duplicated(gameId)))/
+              (sum(server == 0 & gameWonBy == 1 & !duplicated(gameId)) + sum(server == 0 & gameWonBy == 0 & !duplicated(gameId))),
+            Service_G_Won = sum(server == 0 & gameWonBy == 0 & !duplicated(gameId)),
+            Service_Games_Lost = sum(server == 0 & gameWonBy == 1 & !duplicated(gameId)),
+            Total_Matches = n_distinct(matchId),
+            Total_Points_Played = sum(pointWonBy == 0 | pointWonBy == 1),
+            Plus_Minus = sum(pointWonBy == 0 & (outcome == "Ace" | outcome == "Winner" | 
+                               outcome == "ForcedError")) - sum(pointWonBy == 1 & (outcome == "Fault" |
+                                                                 outcome == "UnforcedError")),
+            First_Serve_Performance_Rating = First_Serves_In * First_Serves_Won
+  ) %>%
+  # Convert Set_Won and Set_Lost to 0 and 1
+  mutate(Set_Won = as.integer(Total_Games_Won > Total_Games_Opponent_Won),
+         Set_Lost = as.integer(Total_Games_Won < Total_Games_Opponent_Won))
+
+
+
+
+
+# Calculate averages for sets won
+Sets_Won_Profile_AVG <- Sets_Profile %>% 
+  filter(Set_Won == 1) %>%
+  group_by(player) %>% 
+  summarise(
+    Set_Result = "Won",
+    Unforced_Errors = mean(Unforced_Errors, na.rm = TRUE),
+    First_Serves_In = mean(First_Serves_In, na.rm = TRUE),
+    Errors_Forced = mean(Errors_Forced, na.rm = TRUE),
+    Double_Faults = mean(Double_Faults, na.rm = TRUE)
+  )
+
+# Calculate averages for sets lost
+Sets_Lost_Profile_AVG <- Sets_Profile %>% 
+  filter(Set_Won == 0) %>%
+  group_by(player) %>% 
+  summarise(
+    Set_Result = "Lost",
+    Unforced_Errors = mean(Unforced_Errors, na.rm = TRUE),
+    First_Serves_In = mean(First_Serves_In, na.rm = TRUE),
+    Errors_Forced = mean(Errors_Forced, na.rm = TRUE),
+    Double_Faults = mean(Double_Faults, na.rm = TRUE)
+  )
+
+# Combine both summaries into one data frame
+Combined_Profile_AVG <- bind_rows(Sets_Won_Profile_AVG, Sets_Lost_Profile_AVG)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
